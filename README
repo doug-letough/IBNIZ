@@ -1,7 +1,13 @@
 
 Compilation in Unix-like systems that have GCC and SDL installed: make
 
-This documentation represents IBNIZ version 1.18 released on 2012-01-04.
+This documentation represents nIBNIZ version 0.01 released on 2017-06-14.
+
+nIBNIZ is forked from IBNIZ 1.18 released on 2012-01-04 by Ville-Matias
+Heikkila (viznut@low.fi). This IBNIZ version adds network support to the
+original IBNIZ. Thus it allows user to control IBNIZ over network and
+eventually allowing user to send sequences of commands.
+
 The distribution licence is the "zlib/libpng licence" (see licence.txt).
 
 === OVERVIEW ===
