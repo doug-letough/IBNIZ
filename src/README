@@ -406,18 +406,26 @@ EDITOR COMMANDS
 
 COMMAND LINE OPTIONS
 
-       -h       Dump help on command line usage
-       -v       Dump version info
-       -c CODE  Execute code
-       -n       No autorun of loaded code
+       -h         Dump help on command line usage
+       -v         Dump version info
+       -c <CODE>  Execute code
+       -n         No autorun of loaded code
 
        The following extra options were added for creating the YouTube
        video:
 
-       -e       Dump user keystrokes to stdout
-       -p       Playback dumped user keystrokes from stdin
-       -M       Dump raw video to stdout and raw audio to stderr.
-                30 fps, non-realtime, yuv4mpeg2 and pcm_s16.
+       -e         Dump user keystrokes to stdout
+       -p         Playback dumped user keystrokes from stdin
+       -M         Dump raw video to stdout and raw audio to stderr.
+                  30 fps, non-realtime, yuv4mpeg2 and pcm_s16.
+
+       The new -P option allow network connection to Ibniz via TCP.
+       This option is still in early stage and not yet fully functional.
+       This should allow people to send sequence to Ibniz via network
+       Puredata and any basic network capable sequencer may do it well.
+       You may also simply use telnet to send command.
+        
+       -P <PORT>  Open a socket to TCP/<PORT> 
 
        Some commands used in this process, for reference:
 
@@ -529,4 +537,3 @@ Tasks in an approximate order of priority:
 - Native version for MS-DOS, ibniz-to-c64 compiler etc.
 
 Once we have all of these, we may call the version number 2.0.
-

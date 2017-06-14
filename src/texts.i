@@ -1,10 +1,11 @@
 char*usagetext=
   "usage: %s [file_to_load] [options]\n"
   "where options include:\n"
-  "  -h(elp)       Dump this text\n"
-  "  -v(ersion)    Dump version info\n"
-  "  -c(ode) CODE  Execute code\n"
-  "  -n(oautorun)  Do not autorun loaded code or autohide OSD\n";
+  "  -h(elp)         Dump this text\n"
+  "  -v(ersion)      Dump version info\n"
+  "  -c(ode) <CODE>  Execute <CODE>\n"
+  "  -n(oautorun)    Do not autorun loaded code or autohide OSD\n"
+  "  -P <PORT>       Listen on TCP/<PORT>\n";
 //  "  -e(ventlog)   Dump user events to stdout\n"
 //  "  -p(layback)   Play events back from stdin\n"
 //  "  -M(edia)      Dump media data (YUV video to stdout)\n"

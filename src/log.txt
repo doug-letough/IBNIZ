@@ -1,0 +1,13 @@
+Socket created on port 7138
+Binding done on port TCP/7138
+Waiting for incoming connections...
+Client connected
+Received from client: d*
+
+-----------------
+€=Ie -----------------
+Connection reset by peer.
+Socket created on port 7138
+Binding done on port TCP/7138
+Waiting for incoming connections...
+Client connected

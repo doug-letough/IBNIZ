@@ -7,6 +7,12 @@
 #include "ibniz.h"
 #include "texts.i"
 
+#include <pthread.h>
+#include "server.c"
+
+// Global variable is evil.
+int codechanged=0;
+
 struct
 {
   SDL_Surface*s;
@@ -765,21 +771,33 @@ void ed_switchbuffers()
 
 char*ed_getprogbuf()
 {
-  if(!ed.readonly) return ed.textbuffer;
-     else return ed_parallel.textbuffer;
+  if(!ed.readonly){
+    return ed.textbuffer;
+  } else {
+    return ed_parallel.textbuffer;
+  }
+}
+
+void ed_setprogbuf(char*prog)
+{
+  if(!ed.readonly){
+    ed.textbuffer=prog;
+  } else {
+    ed_parallel.textbuffer=prog;
+  }
 }
 
 /*** main loop etc ***/
 
 void interactivemode(char*codetoload)
 {
-  int codechanged=0;
   uint32_t prevtimevalue=gettimevalue();
   SDL_Event e;
 
   SDL_EnableKeyRepeat(SDL_DEFAULT_REPEAT_DELAY,10);
   SDL_EnableUNICODE(1);
   ed.textbuffer=malloc(EDITBUFSZ*sizeof(char));
+  
   strncpy(ed.textbuffer,codetoload,EDITBUFSZ-1);
   ed_unselect();
   ed.firsty=0;
@@ -849,6 +867,7 @@ void interactivemode(char*codetoload)
       {
         if(codechanged) 
         {
+          printf("Code changed: %s", ed_getprogbuf());
           vm_compile(ed_getprogbuf());
           if(ui.audio_off)
           {
@@ -1080,10 +1099,57 @@ void interactivemode(char*codetoload)
   }
 }
 
+int process_client(int client_sock) {
+  int read_size;
+  char client_message[2000];
+  while( (read_size = recv(client_sock , client_message , 2000 , 0)) > 0 ) {
+    if (strcmp(client_message, "/quit\r\n") == 0) {
+      printf("Connection reset by peer.\n");
+      close(client_sock);
+      return 0;
+    
+    ed_setprogbuf(client_message);
+    codechanged = 1;
+  }
+  if (read_size == -1) {
+    perror("recv failed");
+    close(client_sock);
+    return 1;
+  }
+  return 0;
+}
+
+int server_listen(int server_sock){
+  int client_sock, c, pid;
+  int listening = 1;
+  struct sockaddr_in server, client;
+  
+  listen(server_sock , 3);
+  printf("Waiting for incoming connections...\n");
+  c = sizeof(struct sockaddr_in);
+  while(listening) {
+    client_sock = accept(server_sock, (struct sockaddr *)&client, (socklen_t*)&c);
+    if (client_sock < 0) {
+      perror("Error while accepting connection.");
+      return 1;
+    }
+    printf("Client connected\n");
+    listening = 0;
+    process_client(client_sock);
+    printf("Client disconnected\n");
+    fflush(stdout);
+    server_listen(server_sock);
+  }
+}
+
 int main(int argc,char**argv)
 {
-  signed char autorun=-1;
-  char*codetoload = welcometext;
+  // network
+  pthread_t server_thread;
+  int server_socket;
+  int server_port=0;
+  signed char autorun=1;
+  char*codetoload = "";
   ui.opt_dumpkeys=0;
   ui.opt_nonrealtime=0;
   ui.opt_playback=0;
@@ -1122,6 +1188,10 @@ int main(int argc,char**argv)
         case('M'):
           ui.opt_dumpmedia=1;
           ui.opt_nonrealtime=1;
+          break;
+        case('P'):
+          argv++;
+          server_port = atoi(*argv);
           break;
       }
     } else
@@ -1164,7 +1234,24 @@ int main(int argc,char**argv)
    SDL_OpenAudio(&as,NULL);
    DEBUG(stderr,"buffer size: %d\n",as.samples);
   }
-  
+
+  // Networking
+  if (server_port > 0) {
+    server_socket = create_server_socket(server_port);
+    if (server_socket == 1)
+    {
+        perror("Fatal: Unable to create socket");
+        return 1;
+    }
+
+    if(pthread_create(&server_thread, NULL, server_listen, server_socket))
+    {
+      perror("Fatal: Unable creating server thread");
+      return 1;
+    }
+  }
+  ///////////////////////////
+
   vm_compile(codetoload);
   ui.runstat=(autorun==1)?1:0;
   if(autorun==1) ui.osd_visible=0;
@@ -1172,6 +1259,7 @@ int main(int argc,char**argv)
   vm_init();
   pauseaudio(ui.runstat^1);
   interactivemode(codetoload);
-  
+
+
   SDL_Quit();
 }
