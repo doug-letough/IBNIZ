@@ -3,48 +3,51 @@
 #include<sys/socket.h>
 #include<arpa/inet.h>
 #include<unistd.h>
+#include "server.h"
 
- /* reverse:  reverse string s in place */
- void reverse(char s[])
- {
-     int i, j;
-     char c;
-     for (i = 0, j = strlen(s)-1; i<j; i++, j--) {
-         c = s[i];
-         s[i] = s[j];
-         s[j] = c;
-     }
- }
-
-void itoa(int n, char s[])
- {
-     int i, sign;
-     if ((sign = n) < 0)  /* record sign */
-         n = -n;          /* make n positive */
-     i = 0;
-     do {       /* generate digits in reverse order */
-         s[i++] = n % 10 + '0';   /* get next digit */
-     } while ((n /= 10) > 0);     /* delete it */
-     if (sign < 0)
-         s[i++] = '-';
-     s[i] = '\0';
-     reverse(s);
- }
-
-
-int message_to_int(char command[])
-{
-    char buffer[42];
-    char strfinal[42];
-    for (int i=0; i<strlen(command); i++ )
-    {
-        int ch;
-        ch = command[i];
-        itoa(ch, buffer);
-        strcat(strfinal, buffer);
+int process_client(int client_sock, net_params *net) {
+  int read_size;
+  char client_message[2000];
+  while( (read_size = recv(client_sock , client_message , 2000 , 0)) > 0 ) {
+    if (strcmp(client_message, "/quit\r\n") == 0) {
+      printf("Connection reset by peer.\n");
+      close(client_sock);
+      return 0;
     }
-    return atoi(strfinal);
+    ed_setprogbuf(client_message);
+    (*net).codechanged = 1;
+  }
+  if (read_size == -1) {
+    perror("recv failed");
+    close(client_sock);
+    return 1;
+  }
+  return 0;
 }
+
+int server_listen(net_params *net){
+  int client_sock, c, pid;
+  int listening = 1;
+  struct sockaddr_in server, client;
+  
+  listen((*net).server_socket , 3);
+  printf("Waiting for incoming connections...\n");
+  c = sizeof(struct sockaddr_in);
+  while(listening) {
+    client_sock = accept((*net).server_socket, (struct sockaddr *)&client, (socklen_t*)&c);
+    if (client_sock < 0) {
+      perror("Error while accepting connection.");
+      return 1;
+    }
+    printf("Client connected\n");
+    listening = 0;
+    process_client(client_sock, net);
+    printf("Client disconnected\n");
+    fflush(stdout);
+    server_listen(net);
+  }
+}
+
 
 int create_server_socket(int server_port){
   int server_sock;

@@ -10,9 +10,6 @@
 #include <pthread.h>
 #include "server.c"
 
-// Global variable is evil.
-int codechanged=0;
-
 struct
 {
   SDL_Surface*s;
@@ -789,7 +786,7 @@ void ed_setprogbuf(char*prog)
 
 /*** main loop etc ***/
 
-void interactivemode(char*codetoload)
+void interactivemode(char*codetoload, net_params *net)
 {
   uint32_t prevtimevalue=gettimevalue();
   SDL_Event e;
@@ -865,7 +862,7 @@ void interactivemode(char*codetoload)
         pollplaybackevent(&e);
       if(e.type==SDL_NOEVENT)
       {
-        if(codechanged) 
+        if((*net).codechanged) 
         {
           printf("Code changed: %s", ed_getprogbuf());
           vm_compile(ed_getprogbuf());
@@ -874,7 +871,7 @@ void interactivemode(char*codetoload)
             ui.audio_off=0;
             pauseaudio(0);
           }
-          codechanged=0;
+          (*net).codechanged=0;
         }
         {
           int c = vm_run();
@@ -934,10 +931,10 @@ void interactivemode(char*codetoload)
       if(sym==SDLK_F2)
       {
         ui.timercorr=ui.paused_since=getticks();
-        if(codechanged)
+        if((*net).codechanged)
         {
           vm_compile(ed_getprogbuf());
-          codechanged=0;
+          (*net).codechanged=0;
         }
         vm_init();
         ui.auplayptr=ui.auplaytime=0;
@@ -951,13 +948,13 @@ void interactivemode(char*codetoload)
         if(sym==SDLK_UP && (mod&KMOD_CTRL))
         {
           ed_increment(ed.cursor);
-          codechanged=1;
+          (*net).codechanged=1;
         }
         else
         if(sym==SDLK_DOWN && (mod&KMOD_CTRL))
         {
           ed_decrement(ed.cursor);
-          codechanged=1;
+          (*net).codechanged=1;
         }
         else
         if(sym==SDLK_LEFT && (mod&KMOD_CTRL))
@@ -993,13 +990,13 @@ void interactivemode(char*codetoload)
         if(sym==SDLK_BACKSPACE)
         {
           ed_backspace(-1);
-          codechanged=1;
+          (*net).codechanged=1;
         }
         else
         if(sym==SDLK_DELETE)
         {
           ed_backspace(0);
-          codechanged=1;
+          (*net).codechanged=1;
         }
         else
         if(sym==SDLK_F12)
@@ -1052,7 +1049,7 @@ void interactivemode(char*codetoload)
           if(e.key.keysym.unicode)
           {
             ed_char(e.key.keysym.unicode);
-            codechanged=1;
+            (*net).codechanged=1;
           }
         }
       }
@@ -1099,55 +1096,15 @@ void interactivemode(char*codetoload)
   }
 }
 
-int process_client(int client_sock) {
-  int read_size;
-  char client_message[2000];
-  while( (read_size = recv(client_sock , client_message , 2000 , 0)) > 0 ) {
-    if (strcmp(client_message, "/quit\r\n") == 0) {
-      printf("Connection reset by peer.\n");
-      close(client_sock);
-      return 0;
-    
-    ed_setprogbuf(client_message);
-    codechanged = 1;
-  }
-  if (read_size == -1) {
-    perror("recv failed");
-    close(client_sock);
-    return 1;
-  }
-  return 0;
-}
-
-int server_listen(int server_sock){
-  int client_sock, c, pid;
-  int listening = 1;
-  struct sockaddr_in server, client;
-  
-  listen(server_sock , 3);
-  printf("Waiting for incoming connections...\n");
-  c = sizeof(struct sockaddr_in);
-  while(listening) {
-    client_sock = accept(server_sock, (struct sockaddr *)&client, (socklen_t*)&c);
-    if (client_sock < 0) {
-      perror("Error while accepting connection.");
-      return 1;
-    }
-    printf("Client connected\n");
-    listening = 0;
-    process_client(client_sock);
-    printf("Client disconnected\n");
-    fflush(stdout);
-    server_listen(server_sock);
-  }
-}
-
 int main(int argc,char**argv)
 {
   // network
   pthread_t server_thread;
-  int server_socket;
-  int server_port=0;
+  net_params net;
+  net.server_port=0;
+  net.codechanged=0;
+  //----
+  
   signed char autorun=1;
   char*codetoload = "";
   ui.opt_dumpkeys=0;
@@ -1191,7 +1148,7 @@ int main(int argc,char**argv)
           break;
         case('P'):
           argv++;
-          server_port = atoi(*argv);
+          net.server_port = atoi(*argv);
           break;
       }
     } else
@@ -1236,15 +1193,15 @@ int main(int argc,char**argv)
   }
 
   // Networking
-  if (server_port > 0) {
-    server_socket = create_server_socket(server_port);
-    if (server_socket == 1)
+  if (net.server_port > 0) {
+    net.server_socket = create_server_socket(net.server_port);
+    if (net.server_socket == 1)
     {
         perror("Fatal: Unable to create socket");
         return 1;
     }
 
-    if(pthread_create(&server_thread, NULL, server_listen, server_socket))
+    if(pthread_create(&server_thread, NULL, server_listen, &net))
     {
       perror("Fatal: Unable creating server thread");
       return 1;
@@ -1258,7 +1215,7 @@ int main(int argc,char**argv)
   ui.timercorr=ui.paused_since=getticks();
   vm_init();
   pauseaudio(ui.runstat^1);
-  interactivemode(codetoload);
+  interactivemode(codetoload, &net);
 
 
   SDL_Quit();
